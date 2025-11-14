@@ -1,0 +1,13 @@
+/* app/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-highland-offwhite text-highland-ink;
+}
+
+.outlandish-container {
+  @apply max-w-6xl mx-auto px-4;
+}
