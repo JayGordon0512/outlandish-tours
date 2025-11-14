@@ -19,6 +19,7 @@ model User {
   role          UserRole  @default(CUSTOMER)
   accounts      Account[]
   bookings      Booking[]
+  guide         Guide?
   sessions      Session[]
 }
 
@@ -87,6 +88,9 @@ model Booking {
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   status      String               @default("PENDING")
+  adminNotes  String?
+  guideId     String?
+  guide       Guide?               @relation(fields: [guideId], references: [id])
   tour        Tour                 @relation(fields: [tourId], references: [id])
   user        User                 @relation(fields: [userId], references: [id])
   extras      BookingExtraOption[]
@@ -126,9 +130,27 @@ model BookingExtraOption {
   extraOption   ExtraOption @relation(fields: [extraOptionId], references: [id], onDelete: Cascade)
 }
 
+model Guide {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String  @unique
+  mobile    String?
+  address   String?
+  userId    String? @unique
+  user      User?   @relation(fields: [userId], references: [id])
+
+  photoUrl  String?        // 👈 NEW: profile image URL
+
+  bookings  Booking[]      // all bookings assigned to this guide
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 enum UserRole {
   CUSTOMER
   ADMIN
+  GUIDE
 }
 
 enum ExtraChargeType {

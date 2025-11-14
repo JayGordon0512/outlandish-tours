@@ -1,15 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-const AVAILABLE_OPTIONS = [
-  { key: "private", label: "Private option available" },
-  { key: "hotel", label: "Hotel / accommodation included" },
-  { key: "entry-fees", label: "Entry fees included" },
-  { key: "meals", label: "Meals included" },
-  { key: "pickup", label: "Hotel / city pick-up available" }
-];
+import type { ExtraOption } from "@prisma/client";
 
 const empty = {
   title: "",
@@ -20,7 +13,7 @@ const empty = {
   pricePerPerson: 100,
   maxGroupSize: 8,
   heroImageUrl: "",
-  options: [] as string[],
+  options: [] as string[], // kept for backwards compatibility but unused now
   galleryImages: [] as string[]
 };
 
@@ -43,9 +36,18 @@ export function NewTourForm() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Image suggestions for gallery/hero
   const [suggestions, setSuggestions] = useState<ImageSuggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState<string | null>(null);
+
+  // Paid extras
+  const [extraOptions, setExtraOptions] = useState<ExtraOption[]>([]);
+  const [extrasLoading, setExtrasLoading] = useState(true);
+  const [extrasError, setExtrasError] = useState<string | null>(null);
+  const [selectedExtraIds, setSelectedExtraIds] = useState<string[]>([]);
+
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -56,7 +58,10 @@ export function NewTourForm() {
       const res = await fetch("/api/admin/tours", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify({
+          ...form,
+          extraOptionIds: selectedExtraIds
+        })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -70,16 +75,46 @@ export function NewTourForm() {
     }
   }
 
-  function toggleOption(key: string) {
-    setForm(prev => {
-      const exists = prev.options.includes(key);
-      return {
-        ...prev,
-        options: exists
-          ? prev.options.filter(k => k !== key)
-          : [...prev.options, key]
-      };
-    });
+  // Paid extras: load options from API
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExtras() {
+      setExtrasLoading(true);
+      setExtrasError(null);
+      try {
+        const res = await fetch("/api/admin/options");
+        const data = await res.json().catch(() => []);
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to load options");
+        }
+        if (!cancelled) {
+          setExtraOptions(Array.isArray(data) ? data : []);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setExtrasError(err.message || "Failed to load options");
+          setExtraOptions([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setExtrasLoading(false);
+        }
+      }
+    }
+
+    loadExtras();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function toggleExtra(extraId: string) {
+    setSelectedExtraIds(prev =>
+      prev.includes(extraId)
+        ? prev.filter(id => id !== extraId)
+        : [...prev, extraId]
+    );
   }
 
   function addGalleryImage(url: string) {
@@ -124,6 +159,7 @@ export function NewTourForm() {
       onSubmit={handleSubmit}
       className="space-y-4 bg-highland-offwhite border border-highland-stone rounded-2xl p-4 text-sm"
     >
+      {/* Title */}
       <div className="space-y-1">
         <label>Title</label>
         <input
@@ -139,6 +175,8 @@ export function NewTourForm() {
           }}
         />
       </div>
+
+      {/* Slug */}
       <div className="space-y-1">
         <label>Slug (URL)</label>
         <input
@@ -146,7 +184,10 @@ export function NewTourForm() {
           value={form.slug}
           onChange={e => {
             if (!slugTouched) setSlugTouched(true);
-            setForm(prev => ({ ...prev, slug: e.target.value }));
+            setForm(prev => ({
+              ...prev,
+              slug: e.target.value
+            }));
           }}
         />
         <p className="text-xs text-highland-ink/60">
@@ -157,15 +198,21 @@ export function NewTourForm() {
           . Use lowercase letters, numbers and hyphens only.
         </p>
       </div>
+
+      {/* Summary */}
       <div className="space-y-1">
         <label>Summary</label>
         <textarea
           rows={2}
           className="w-full rounded-lg bg-highland-stone/30 border border-highland-stone px-3 py-2 text-highland-ink focus:outline-none focus:border-highland-gold"
           value={form.summary}
-          onChange={e => setForm(prev => ({ ...prev, summary: e.target.value }))}
+          onChange={e =>
+            setForm(prev => ({ ...prev, summary: e.target.value }))
+          }
         />
       </div>
+
+      {/* Description */}
       <div className="space-y-1">
         <label>Description (full itinerary)</label>
         <textarea
@@ -177,6 +224,8 @@ export function NewTourForm() {
           }
         />
       </div>
+
+      {/* Core numbers */}
       <div className="grid grid-cols-3 gap-3">
         <div className="space-y-1">
           <label>Duration (days)</label>
@@ -193,6 +242,7 @@ export function NewTourForm() {
             }
           />
         </div>
+
         <div className="space-y-1">
           <label>Price per person (£)</label>
           <input
@@ -208,6 +258,7 @@ export function NewTourForm() {
             }
           />
         </div>
+
         <div className="space-y-1">
           <label>Max group size</label>
           <input
@@ -225,6 +276,7 @@ export function NewTourForm() {
         </div>
       </div>
 
+      {/* Hero image */}
       <div className="space-y-1">
         <label>Hero image URL (optional)</label>
         <input
@@ -239,6 +291,7 @@ export function NewTourForm() {
         </p>
       </div>
 
+      {/* Gallery & suggestions */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label>Gallery images (optional)</label>
@@ -294,6 +347,44 @@ export function NewTourForm() {
           <p className="text-xs text-highland-ink/60">
             You can also paste image URLs manually into the gallery below.
           </p>
+
+          {/* Manual gallery URLs */}
+          <div className="flex gap-2 mt-2">
+            <input
+              id="gallery-new"
+              className="flex-1 rounded-lg bg-highland-stone/30 border border-highland-stone px-3 py-2 text-highland-ink text-xs focus:outline-none focus:border-highland-gold"
+              placeholder="Paste image URL and press Enter or click Add"
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const input = e.target as HTMLInputElement;
+                  const url = input.value.trim();
+                  if (url) {
+                    addGalleryImage(url);
+                    input.value = "";
+                  }
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="px-3 py-2 rounded-lg border border-highland-stone text-xs text-highland-ink hover:border-highland-gold"
+              onClick={() => {
+                const input = document.getElementById(
+                  "gallery-new"
+                ) as HTMLInputElement | null;
+                if (!input) return;
+                const url = input.value.trim();
+                if (url) {
+                  addGalleryImage(url);
+                  input.value = "";
+                }
+              }}
+            >
+              Add
+            </button>
+          </div>
+
           {form.galleryImages.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {form.galleryImages.map(url => (
@@ -316,23 +407,72 @@ export function NewTourForm() {
         </div>
       </div>
 
+      {/* Paid extras */}
       <div className="space-y-2">
-        <label>Options available for this tour</label>
-        <div className="flex flex-wrap gap-3 text-xs">
-          {AVAILABLE_OPTIONS.map(opt => (
-            <label key={opt.key} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={form.options.includes(opt.key)}
-                onChange={() => toggleOption(opt.key)}
-              />
-              <span>{opt.label}</span>
-            </label>
-          ))}
+        <div className="flex items-center justify-between">
+          <label className="font-semibold text-highland-ink text-sm">
+            Paid extras for this tour
+          </label>
+          <a
+            href="/admin/options"
+            className="text-[11px] text-highland-ink/70 hover:text-highland-gold"
+          >
+            Manage options
+          </a>
         </div>
+
+        {extrasLoading ? (
+          <p className="text-xs text-highland-ink/60">Loading extras…</p>
+        ) : extrasError ? (
+          <p className="text-xs text-red-500">{extrasError}</p>
+        ) : extraOptions.length === 0 ? (
+          <p className="text-xs text-highland-ink/60">
+            No extra options defined yet. Create them in Admin → Options.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2 text-xs">
+            {extraOptions.map(opt => {
+              const isSelected = selectedExtraIds.includes(opt.id);
+              return (
+                <label
+                  key={opt.id}
+                  className="flex items-start gap-2 border border-highland-stone rounded-xl px-3 py-2 bg-highland-stone/20"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleExtra(opt.id)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-highland-ink">
+                        {opt.name}
+                      </span>
+                      <span className="font-semibold text-highland-gold">
+                        £{opt.price}
+                      </span>
+                    </div>
+                    {opt.description && (
+                      <p className="text-[11px] text-highland-ink/70 mt-0.5">
+                        {opt.description}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-highland-ink/60 mt-0.5">
+                      {opt.chargeType === "PER_PERSON"
+                        ? "Charged per person"
+                        : "Charged per tour"}
+                    </p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}
+
       <button
         type="submit"
         disabled={loading}
