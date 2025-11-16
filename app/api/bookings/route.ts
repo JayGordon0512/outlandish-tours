@@ -1,142 +1,96 @@
 // app/api/bookings/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { ExtraChargeType } from "@prisma/client";
 
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const dynamic = "force-dynamic";
 
-  const body = await req.json().catch(() => null);
-
-  if (!body) {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
-  }
-
-  const { tourId, startDate, guests, extraOptionIds } = body;
-
-  if (!tourId || !startDate || !guests) {
-    return NextResponse.json(
-      { error: "tourId, startDate and guests are required" },
-      { status: 400 }
-    );
-  }
-
-  const guestCount = Number(guests);
-  if (!Number.isFinite(guestCount) || guestCount < 1) {
-    return NextResponse.json(
-      { error: "Guests must be a positive number" },
-      { status: 400 }
-    );
-  }
-
-  const extraIds: string[] = Array.isArray(extraOptionIds)
-    ? extraOptionIds.filter((id: any) => typeof id === "string")
-    : [];
-
+// GET /api/bookings
+// Returns all bookings (admin or system usage)
+export async function GET() {
   try {
-    const tour = await prisma.tour.findUnique({
-      where: { id: tourId }
-    });
-
-    if (!tour || !tour.isActive) {
-      return NextResponse.json(
-        { error: "Tour not found or not available" },
-        { status: 404 }
-      );
-    }
-
-    // Load selected extras that are actually attached to this tour
-    const attachedExtras = await prisma.tourExtraOption.findMany({
-      where: {
-        tourId,
-        extraOptionId: { in: extraIds }
-      },
+    const bookings = await prisma.booking.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
-        extraOption: true
-      }
+        tour: true,
+        user: true,
+        extras: {
+          include: { extraOption: true },
+        },
+        guide: true,
+      },
     });
 
-    // Base total: price per person × guests
-    const baseTotal = tour.pricePerPerson * guestCount;
-
-    // Compute extras totals + BookingExtraOption rows
-    const extraLines = attachedExtras.map(({ extraOption }) => {
-      const qty =
-        extraOption.chargeType === ExtraChargeType.PER_PERSON
-          ? guestCount
-          : 1;
-
-      const unitPrice = extraOption.price;
-      const totalPrice = unitPrice * qty;
-
-      return {
-        extraOptionId: extraOption.id,
-        quantity: qty,
-        unitPrice,
-        totalPrice
-      };
-    });
-
-    const extrasTotal = extraLines.reduce(
-      (sum, line) => sum + line.totalPrice,
-      0
+    return NextResponse.json(bookings, { status: 200 });
+  } catch (err) {
+    console.error("[BOOKINGS_GET_ERROR]", err);
+    return NextResponse.json(
+      { error: "Failed to fetch bookings" },
+      { status: 500 }
     );
+  }
+}
 
-    const totalAmount = baseTotal + extrasTotal;
-
-    const start = new Date(startDate);
-    if (Number.isNaN(start.getTime())) {
+// POST /api/bookings
+// Creates a booking — used by the booking flow
+export async function POST(req: Request) {
+  try {
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { error: "Invalid startDate format" },
+        { error: "Invalid JSON body" },
         { status: 400 }
       );
     }
 
-    // Create booking + extras in a transaction
-    const result = await prisma.$transaction(async tx => {
-      const booking = await tx.booking.create({
-        data: {
-          tourId: tour.id,
-          userId: (session.user as any).id,
-          startDate: start,
-          guests: guestCount,
-          totalAmount,
-          amountPaid: 0,
-          status: "PENDING"
-        }
-      });
+    const {
+      userId,
+      tourId,
+      startDate,
+      guests,
+      totalAmount,
+      amountPaid,
+      extras = [],
+    } = body;
 
-      if (extraLines.length > 0) {
-        await tx.bookingExtraOption.createMany({
-          data: extraLines.map(line => ({
-            bookingId: booking.id,
-            extraOptionId: line.extraOptionId,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice,
-            totalPrice: line.totalPrice
-          }))
-        });
-      }
+    if (!userId || !tourId || !startDate || !guests) {
+      return NextResponse.json(
+        { error: "Missing required booking fields" },
+        { status: 400 }
+      );
+    }
 
-      return booking;
+    const booking = await prisma.booking.create({
+      data: {
+        userId,
+        tourId,
+        startDate: new Date(startDate),
+        guests: Number(guests),
+        totalAmount: Number(totalAmount ?? 0),
+        amountPaid: Number(amountPaid ?? 0),
+
+        extras: {
+          create: extras.map((e: any) => ({
+            extraOptionId: e.extraOptionId,
+            quantity: Number(e.quantity),
+            unitPrice: Number(e.unitPrice),
+            totalPrice: Number(e.totalPrice),
+          })),
+        },
+      },
+      include: {
+        extras: true,
+        tour: true,
+        user: true,
+      },
     });
 
-    return NextResponse.json(result, { status: 201 });
-  } catch (err: any) {
-    console.error("Error creating booking", err);
+    return NextResponse.json(booking, { status: 201 });
+  } catch (err) {
+    console.error("[BOOKINGS_POST_ERROR]", err);
     return NextResponse.json(
-      {
-        error:
-          err?.message ||
-          "Failed to create booking – please try again later."
-      },
+      { error: "Failed to create booking" },
       { status: 500 }
     );
   }
