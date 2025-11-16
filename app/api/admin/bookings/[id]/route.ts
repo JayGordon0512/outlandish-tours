@@ -1,53 +1,113 @@
 // app/api/admin/bookings/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
-interface RouteContext {
-  params: { id: string };
-}
+export const dynamic = "force-dynamic";
 
-// DELETE: delete a single booking (admin only)
-export async function DELETE(_req: Request, { params }: RouteContext) {
-  const session = await auth();
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+type RouteContext = {
+  params: {
+    id: string;
+  };
+};
 
+export async function GET(_req: NextRequest, { params }: RouteContext) {
   try {
     const booking = await prisma.booking.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        tour: true,
+        user: true,
+        guide: true,
+        extras: {
+          include: {
+            extraOption: true,
+          },
+        },
+      },
     });
 
     if (!booking) {
       return NextResponse.json(
-        { error: "Booking not found (it may already have been deleted)." },
+        { error: "Booking not found" },
         { status: 404 }
       );
     }
 
+    return NextResponse.json(booking);
+  } catch (error) {
+    console.error("GET /api/admin/bookings/[id] error", error);
+    return NextResponse.json(
+      { error: "Unable to fetch booking" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: RouteContext) {
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
+
+  const {
+    status,
+    adminNotes,
+    guideId,
+    amountPaid,
+  }: {
+    status?: string;
+    adminNotes?: string | null;
+    guideId?: string | null;
+    amountPaid?: number;
+  } = body ?? {};
+
+  try {
+    const updated = await prisma.booking.update({
+      where: { id: params.id },
+      data: {
+        ...(status !== undefined && { status }),
+        ...(adminNotes !== undefined && { adminNotes }),
+        ...(guideId !== undefined && { guideId }),
+        ...(amountPaid !== undefined && { amountPaid }),
+      },
+      include: {
+        tour: true,
+        user: true,
+        guide: true,
+        extras: {
+          include: {
+            extraOption: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error("PATCH /api/admin/bookings/[id] error", error);
+    return NextResponse.json(
+      { error: "Unable to update booking" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+  try {
     await prisma.booking.delete({
-      where: { id: params.id }
+      where: { id: params.id },
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    console.error("Error deleting booking", err);
-
-    // Prisma "record not found" safety net
-    if (err.code === "P2025") {
-      return NextResponse.json(
-        { error: "Booking not found in database." },
-        { status: 404 }
-      );
-    }
-
+  } catch (error) {
+    console.error("DELETE /api/admin/bookings/[id] error", error);
     return NextResponse.json(
-      {
-        error:
-          err?.message ||
-          "Failed to delete booking – check server logs for more details."
-      },
+      { error: "Unable to delete booking" },
       { status: 500 }
     );
   }
