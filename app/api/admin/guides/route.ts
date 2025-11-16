@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-// Small helper to safely get the current user role
+// Ensure this is always dynamic and Node runtime
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// Helper to safely get user role
 async function getUserRoleSafe() {
   try {
     const session = await auth();
@@ -15,10 +20,7 @@ async function getUserRoleSafe() {
   }
 }
 
-/**
- * GET /api/admin/guides
- * Returns the list of guides for the admin UI.
- */
+// GET /api/admin/guides → list guides
 export async function GET(_req: NextRequest) {
   try {
     const role = await getUserRoleSafe();
@@ -30,10 +32,7 @@ export async function GET(_req: NextRequest) {
     }
 
     const guides = await prisma.guide.findMany({
-      orderBy: [
-        { lastName: "asc" },
-        { firstName: "asc" },
-      ],
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
 
     return NextResponse.json(guides, { status: 200 });
@@ -46,10 +45,7 @@ export async function GET(_req: NextRequest) {
   }
 }
 
-/**
- * POST /api/admin/guides
- * Creates a new guide.
- */
+// POST /api/admin/guides → create guide
 export async function POST(req: NextRequest) {
   try {
     const role = await getUserRoleSafe();
@@ -64,7 +60,7 @@ export async function POST(req: NextRequest) {
     try {
       body = await req.json();
     } catch (err) {
-      console.error("Invalid JSON body in POST /api/admin/guides:", err);
+      console.error("Invalid JSON in POST /api/admin/guides:", err);
       return NextResponse.json(
         { error: "Invalid JSON" },
         { status: 400 }
@@ -94,8 +90,7 @@ export async function POST(req: NextRequest) {
         email,
         mobile: mobile ?? null,
         address: address ?? null,
-        // only set image if your Guide model has this field;
-        // remove this line if it doesn't exist in the Prisma schema
+        // ⚠ Only uncomment if your Guide model has imageUrl
         // imageUrl: imageUrl ?? null,
       },
     });
