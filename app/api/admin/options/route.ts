@@ -2,8 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/admin/options
-// Return all extra options
+// Ensure this is always runtime-only and never statically analyzed
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+// GET /api/admin/options  → list all extra options
 export async function GET() {
   try {
     const options = await prisma.extraOption.findMany({
@@ -11,17 +15,16 @@ export async function GET() {
     });
 
     return NextResponse.json(options);
-  } catch (error) {
-    console.error("Error fetching extra options:", error);
+  } catch (err) {
+    console.error("GET /api/admin/options error:", err);
     return NextResponse.json(
-      { error: "Failed to fetch extra options" },
+      { error: "Server error" },
       { status: 500 }
     );
   }
 }
 
-// POST /api/admin/options
-// Create a new extra option
+// POST /api/admin/options  → create a new extra option
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -31,31 +34,31 @@ export async function POST(req: NextRequest) {
       description,
       price,
       chargeType,
-      isActive = true,
-    } = body ?? {};
+      isActive,
+    } = body;
 
-    if (!name || typeof price !== "number" || !chargeType) {
+    if (!name || typeof name !== "string") {
       return NextResponse.json(
-        { error: "Missing required fields: name, price, chargeType" },
+        { error: "Name is required" },
         { status: 400 }
       );
     }
 
-    const option = await prisma.extraOption.create({
+    const created = await prisma.extraOption.create({
       data: {
         name,
         description: description ?? null,
-        price,
-        chargeType,
-        isActive,
+        price: typeof price === "number" ? price : 0,
+        chargeType: chargeType ?? "PER_PERSON",
+        isActive: typeof isActive === "boolean" ? isActive : true,
       },
     });
 
-    return NextResponse.json(option, { status: 201 });
-  } catch (error) {
-    console.error("Error creating extra option:", error);
+    return NextResponse.json(created, { status: 201 });
+  } catch (err) {
+    console.error("POST /api/admin/options error:", err);
     return NextResponse.json(
-      { error: "Failed to create extra option" },
+      { error: "Server error" },
       { status: 500 }
     );
   }
