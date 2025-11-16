@@ -1,85 +1,98 @@
 // app/api/payments/mock-complete/route.ts
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const dynamic = "force-dynamic";
 
-  const body = await req.json().catch(() => null);
-  if (!body) {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
-  }
-
-  const { bookingId, mode } = body as {
-    bookingId?: string;
-    mode?: "deposit" | "balance";
-  };
-
-  if (!bookingId) {
-    return NextResponse.json(
-      { error: "bookingId is required" },
-      { status: 400 }
-    );
-  }
-
-  const userId = (session.user as any).id;
-
-  const booking = await prisma.booking.findUnique({
-    where: {
-      id: bookingId,
-      userId
+export async function POST(req: NextRequest) {
+  try {
+    // Safe JSON parsing
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
     }
-  });
 
-  if (!booking) {
-    return NextResponse.json(
-      { error: "Booking not found" },
-      { status: 404 }
-    );
-  }
+    const { bookingId, paymentType } = body ?? {};
 
-  const total = booking.totalAmount;
-  const paid = booking.amountPaid;
-  const remaining = Math.max(total - paid, 0);
-  const depositTarget = total * 0.5;
-  const depositDue = Math.max(depositTarget - paid, 0);
-
-  const modeSafe = mode === "deposit" ? "deposit" : "balance";
-
-  let amountToPay = remaining;
-  if (modeSafe === "deposit") {
-    amountToPay = depositDue;
-  }
-
-  if (amountToPay <= 0.01 || remaining <= 0.01) {
-    return NextResponse.json(
-      { error: "No outstanding amount to pay for this booking." },
-      { status: 400 }
-    );
-  }
-
-  const newPaid = paid + amountToPay;
-
-  const updated = await prisma.booking.update({
-    where: { id: booking.id },
-    data: {
-      amountPaid: newPaid,
-      status: newPaid + 0.01 >= total ? "CONFIRMED" : booking.status
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: "Missing bookingId" },
+        { status: 400 }
+      );
     }
-  });
 
-  return NextResponse.json(
-    {
-      ok: true,
-      booking: updated
-    },
-    { status: 200 }
-  );
+    // Must be either "deposit" or "balance"
+    const type =
+      paymentType === "balance" ? "balance" : "deposit";
+
+    // Fetch booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        tour: true,
+        extras: { include: { extraOption: true } },
+      },
+    });
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Booking not found" },
+        { status: 404 }
+      );
+    }
+
+    // Calculate totals
+    const basePrice =
+      booking.tour.pricePerPerson * booking.guests;
+
+    const extrasTotal = booking.extras.reduce(
+      (sum, e) => sum + e.totalPrice,
+      0
+    );
+
+    const total = basePrice + extrasTotal;
+
+    // Determine how much to add
+    let updatedPaid = booking.amountPaid;
+
+    if (type === "deposit") {
+      updatedPaid += Math.floor(total * 0.5);
+    } else {
+      updatedPaid = total; // balance paid in full
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        amountPaid: updatedPaid,
+        updatedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        bookingId: updated.id,
+        amountPaid: updatedPaid,
+        paymentType: type,
+        message:
+          type === "deposit"
+            ? "Mock deposit payment completed"
+            : "Mock full balance payment completed",
+      },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("[MOCK_COMPLETE_PAYMENT_ERROR]", err);
+    return NextResponse.json(
+      { error: "Failed to complete payment" },
+      { status: 500 }
+    );
+  }
 }
