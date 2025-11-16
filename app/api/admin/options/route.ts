@@ -1,60 +1,61 @@
 // app/api/admin/options/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
+// GET /api/admin/options
+// Return all extra options
 export async function GET() {
-  const session = await auth();
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const options = await prisma.extraOption.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(options);
+  } catch (error) {
+    console.error("Error fetching extra options:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch extra options" },
+      { status: 500 }
+    );
   }
-
-  const options = await prisma.extraOption.findMany({
-    orderBy: { name: "asc" }
-  });
-
-  return NextResponse.json(options);
 }
 
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const data = await req.json();
-  const { name, description, price, chargeType, isActive } = data || {};
-
-  if (!name || price == null || !chargeType) {
-    return NextResponse.json(
-      { error: "Name, price and charge type are required." },
-      { status: 400 }
-    );
-  }
-
-  if (!["PER_PERSON", "PER_TOUR"].includes(chargeType)) {
-    return NextResponse.json(
-      { error: "Invalid charge type." },
-      { status: 400 }
-    );
-  }
-
+// POST /api/admin/options
+// Create a new extra option
+export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
+
+    const {
+      name,
+      description,
+      price,
+      chargeType,
+      isActive = true,
+    } = body ?? {};
+
+    if (!name || typeof price !== "number" || !chargeType) {
+      return NextResponse.json(
+        { error: "Missing required fields: name, price, chargeType" },
+        { status: 400 }
+      );
+    }
+
     const option = await prisma.extraOption.create({
       data: {
         name,
-        description: description || null,
-        price: Number(price),
+        description: description ?? null,
+        price,
         chargeType,
-        isActive: typeof isActive === "boolean" ? isActive : true
-      }
+        isActive,
+      },
     });
 
     return NextResponse.json(option, { status: 201 });
-  } catch (err: any) {
-    console.error("Error creating extra option", err);
+  } catch (error) {
+    console.error("Error creating extra option:", error);
     return NextResponse.json(
-      { error: "Failed to create extra option." },
+      { error: "Failed to create extra option" },
       { status: 500 }
     );
   }
