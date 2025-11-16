@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { EditBookingForm } from "@/components/admin/EditBookingForm";
-import DeleteBookingButton from "@/components/admin/DeleteBookingButton";
+import { DeleteBookingButton } from "@/components/admin/DeleteBookingButton";
 
 export default async function EditBookingPage({
   params,
