@@ -1,10 +1,11 @@
-// app/layout.tsx
 import "./globals.css";
 import type { ReactNode } from "react";
 import { auth } from "@/lib/auth";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
+// Force the whole app to be dynamic so Vercel doesn't try
+// to statically pre-render pages that call auth()/Prisma/etc.
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 export const revalidate = 0;
@@ -16,15 +17,7 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  let session = null;
-
-  // IMPORTANT: never let auth() throw during build
-  try {
-    session = await auth();
-  } catch (err) {
-    // In build / error cases, just treat as logged-out
-    session = null;
-  }
+  const session = await auth();
 
   return (
     <html lang="en">
