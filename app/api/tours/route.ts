@@ -1,74 +1,134 @@
-// app/api/admin/tours/route.ts
-import { NextResponse } from "next/server";
+// app/api/tours/route.ts
+
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 
-// (Optional) GET: list all tours for admin
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/tours
+ * Returns list of active tours with basic relations.
+ */
 export async function GET() {
-  const session = await auth();
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const tours = await prisma.tour.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
+      include: {
+        extraOptions: {
+          include: { extraOption: true },
+        },
+      },
+    });
 
-  const tours = await prisma.tour.findMany({
-    orderBy: { createdAt: "desc" }
-  });
-
-  return NextResponse.json(tours);
-}
-
-// POST: create a new tour
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const data = await req.json();
-
-  const {
-    title,
-    slug,
-    summary,
-    description,
-    durationDays,
-    pricePerPerson,
-    maxGroupSize,
-    heroImageUrl,
-    options,
-    galleryImages
-  } = data || {};
-
-  if (!title || !slug) {
+    return NextResponse.json({ tours }, { status: 200 });
+  } catch (err) {
+    console.error("[TOURS_GET_ERROR]", err);
     return NextResponse.json(
-      { error: "Title and slug are required" },
-      { status: 400 }
+      { error: "Failed to fetch tours" },
+      { status: 500 }
     );
   }
+}
 
+/**
+ * POST /api/tours
+ * Creates a new tour. Used only by admin creation flow.
+ */
+export async function POST(req: NextRequest) {
   try {
+    // Safe JSON parsing
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      );
+    }
+
+    const {
+      title,
+      slug,
+      summary,
+      description,
+      durationDays,
+      pricePerPerson,
+      maxGroupSize,
+      heroImageUrl,
+      galleryImages = [],
+      extraOptionIds = [],
+    } = body ?? {};
+
+    // Minimal validation
+    if (!title || !slug || !summary || !description) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
     const tour = await prisma.tour.create({
       data: {
         title,
         slug,
-        summary: summary || "",
-        description: description || "",
-        durationDays: Number(durationDays) || 1,
-        pricePerPerson: Number(pricePerPerson) || 0,
-        maxGroupSize: Number(maxGroupSize) || 1,
+        summary,
+        description,
+        durationDays: Number(durationDays ?? 1),
+        pricePerPerson: Number(pricePerPerson ?? 0),
+        maxGroupSize: Number(maxGroupSize ?? 1),
         heroImageUrl: heroImageUrl || null,
-        options: Array.isArray(options) ? options : [],
-        galleryImages: Array.isArray(galleryImages) ? galleryImages : [],
-        // isFeatured / isActive will use defaults unless provided
-      }
+        galleryImages: Array.isArray(galleryImages)
+          ? galleryImages
+          : [],
+        isFeatured: false,
+        isActive: true,
+        extraOptions: {
+          create: extraOptionIds.map((id: string) => ({
+            extraOptionId: id,
+          })),
+        },
+      },
+      include: {
+        extraOptions: {
+          include: { extraOption: true },
+        },
+      },
     });
 
-    return NextResponse.json(tour, { status: 201 });
-  } catch (err: any) {
-    console.error("Error creating tour", err);
+    return NextResponse.json({ tour }, { status: 201 });
+  } catch (err) {
+    console.error("[TOURS_POST_ERROR]", err);
+
     return NextResponse.json(
       { error: "Failed to create tour" },
       { status: 500 }
     );
   }
+}
+
+/**
+ * Block PATCH, PUT, DELETE to avoid Vercel build issues.
+ */
+
+export async function PUT() {
+  return NextResponse.json(
+    { error: "Method not allowed" },
+    { status: 405 }
+  );
+}
+
+export async function PATCH() {
+  return NextResponse.json(
+    { error: "Method not allowed" },
+    { status: 405 }
+  );
+}
+
+export async function DELETE() {
+  return NextResponse.json(
+    { error: "Method not allowed" },
+    { status: 405 }
+  );
 }
