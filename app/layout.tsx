@@ -1,14 +1,13 @@
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+export const runtime = "nodejs";
+
 import "./globals.css";
 import type { ReactNode } from "react";
 import { auth } from "@/lib/auth";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-
-// Force the whole app to be dynamic so Vercel doesn't try
-// to statically pre-render pages that call auth()/Prisma/etc.
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
 
 export const metadata = {
   title: "Outlandish Tours | Outlander-inspired Scottish Highlands Adventures",
