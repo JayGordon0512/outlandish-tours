@@ -1,11 +1,10 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-export const revalidate = 0;
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 import "./globals.css";
 import type { ReactNode } from "react";
-import { auth } from "@/lib/auth";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
@@ -15,13 +14,11 @@ export const metadata = {
     "Book cinematic, story-driven tours across the Scottish Highlands inspired by Outlander."
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  const session = await auth();
-
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col">
-        <Navbar session={session} />
+        <Navbar />
         <main className="flex-1 py-8">
           <div className="outlandish-container">{children}</div>
         </main>

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Session } from "next-auth";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -11,8 +10,9 @@ const navItems = [
   { href: "/faq", label: "FAQ" }
 ];
 
-export function Navbar({ session }: { session: Session | null }) {
+export function Navbar() {
   const pathname = usePathname();
+
   return (
     <header className="border-b border-highland-stone/80 bg-highland-offwhite/95 backdrop-blur sticky top-0 z-50">
       <div className="outlandish-container flex items-center justify-between py-3">
@@ -29,6 +29,7 @@ export function Navbar({ session }: { session: Session | null }) {
             </div>
           </div>
         </Link>
+
         <nav className="flex items-center gap-6 text-sm">
           {navItems.map(item => (
             <Link
@@ -42,27 +43,16 @@ export function Navbar({ session }: { session: Session | null }) {
               {item.label}
             </Link>
           ))}
-          {session?.user ? (
-            <>
-              {(session.user as any).role === "ADMIN" && (
-                <Link href="/admin" className="text-sm hover:text-highland-gold text-highland-ink">
-                  Admin
-                </Link>
-              )}
-              <Link href="/dashboard" className="text-sm hover:text-highland-gold text-highland-ink">
-                My Trips
-              </Link>
-            </>
-          ) : (
-            <Link
-              href="/auth/login"
-              className="px-3 py-1 rounded-full border border-highland-gold text-xs uppercase tracking-wide 
-                         text-highland-ink bg-highland-offwhite
-                         hover:bg-highland-gold hover:text-highland-offwhite transition"
-            >
-              Sign in
-            </Link>
-          )}
+
+          {/* Simple static sign-in link (no session-based logic here) */}
+          <Link
+            href="/auth/login"
+            className="px-3 py-1 rounded-full border border-highland-gold text-xs uppercase tracking-wide 
+                       text-highland-ink bg-highland-offwhite
+                       hover:bg-highland-gold hover:text-highland-offwhite transition"
+          >
+            Sign in
+          </Link>
         </nav>
       </div>
     </header>
