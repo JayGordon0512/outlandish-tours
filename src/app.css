@@ -1,0 +1,250 @@
+@import "tailwindcss";
+
+/* ----------------------------- */
+/* Base Layer — Outlandish Light Theme */
+/* ----------------------------- */
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* Brand-approved palette */
+    --offwhite: #f7f3e9;   /* page background */
+    --stone: #d9d7ca;      /* cards / panels */
+    --gold: #b9934a;       /* accent / CTA */
+    --ink: #3b3024;        /* primary text */
+
+    /* Derived colours */
+    --bg-page: var(--offwhite);
+    --bg-surface: var(--stone);
+    --bg-elevated: #eae6db;
+
+    --border-subtle: #c8c4b6;
+    --text-main: var(--ink);
+    --text-muted: #6b6257;
+
+    --accent: var(--gold);
+    --accent-soft: rgba(185, 147, 74, 0.14);
+
+    --danger: #b73a3a;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  html,
+  body {
+    @apply min-h-screen m-0 p-0;
+    font-family: theme("fontFamily.sans");
+    background-color: var(--bg-page);
+    color: var(--text-main);
+  }
+
+  body {
+    @apply antialiased;
+  }
+
+  a {
+    color: var(--gold);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    text-decoration: underline;
+    color: #a8833f;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    @apply font-sans;
+  }
+}
+
+/* ----------------------------- */
+/* Component Layer — Reusable UI */
+/* ----------------------------- */
+
+@layer components {
+
+  /* Layout */
+  .page-shell {
+    @apply max-w-6xl mx-auto px-4 py-8 space-y-6;
+  }
+
+  .page-header {
+    @apply flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold;
+    color: var(--ink);
+  }
+
+  .page-subtitle {
+    @apply text-sm;
+    color: var(--text-muted);
+  }
+
+  /* Cards */
+  .card {
+    @apply rounded-xl p-6 shadow-sm border;
+    background-color: var(--stone);
+    border-color: var(--border-subtle);
+  }
+
+  .card-tight {
+    @apply rounded-xl px-4 py-3 shadow-sm border;
+    background-color: var(--stone);
+    border-color: var(--border-subtle);
+  }
+
+  .card-danger {
+    @apply rounded-xl p-6 border;
+    background-color: #fceaea;
+    border-color: #f4bdbd;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold;
+    background-color: var(--gold);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background-color: #a8833f;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold border;
+    background-color: var(--stone);
+    border-color: var(--border-subtle);
+    color: var(--ink);
+  }
+  .btn-secondary:hover {
+    background-color: #cfcabd;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold border;
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--ink);
+  }
+  .btn-ghost:hover {
+    background-color: var(--accent-soft);
+    border-color: var(--gold);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold;
+    background-color: var(--danger);
+    color: #fff;
+  }
+  .btn-danger:hover {
+    background-color: #992f2f;
+  }
+
+  .btn-xs { @apply text-[11px] px-2 py-1; }
+  .btn-sm { @apply text-xs px-3 py-1.5; }
+
+  /* Inputs */
+  .field-label {
+    @apply text-xs font-medium;
+    color: var(--ink);
+  }
+
+  .input,
+  .textarea,
+  .select {
+    @apply w-full rounded-lg px-3 py-2 text-sm outline-none border;
+    background-color: #fff;
+    border-color: var(--border-subtle);
+    color: var(--ink);
+  }
+
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    border-color: var(--gold);
+  }
+
+  .textarea { @apply min-h-[80px]; }
+
+  .checkbox {
+    @apply rounded border bg-white;
+    border-color: var(--border-subtle);
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2 py-[2px] text-[10px] uppercase tracking-wide border;
+  }
+
+  .badge-muted {
+    background-color: #edeae2;
+    border-color: var(--border-subtle);
+    color: var(--text-muted);
+  }
+
+  .badge-active {
+    background-color: var(--accent-soft);
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+
+  .badge-inactive {
+    background-color: #edeae2;
+    border-color: var(--border-subtle);
+    color: #7e7469;
+  }
+
+  .badge-featured {
+    background-color: var(--accent-soft);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* Tables */
+  .table-shell {
+    @apply overflow-x-auto rounded-xl border shadow-sm;
+    background-color: var(--stone);
+    border-color: var(--border-subtle);
+  }
+
+  .table {
+    @apply min-w-full text-sm;
+  }
+
+  .table-head-row {
+    @apply border-b text-xs uppercase;
+    background-color: #efece4;
+    border-color: var(--border-subtle);
+    color: var(--text-muted);
+  }
+
+  .table-head-cell { @apply px-4 py-3 text-left font-medium; }
+
+  .table-row {
+    @apply border-t;
+    border-color: var(--border-subtle);
+  }
+  .table-row:hover {
+    background-color: #efece4;
+  }
+
+  .table-cell { @apply px-4 py-3 align-top; }
+  .table-cell-right { @apply table-cell text-right; }
+
+  /* Text helpers */
+  .text-muted { color: var(--text-muted); }
+  .text-meta { @apply text-[11px]; color: var(--text-muted); }
+  .mono { @apply font-mono; }
+}
