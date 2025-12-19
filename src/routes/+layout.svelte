@@ -15,8 +15,10 @@
   const user = data?.user ?? null;
   console.log("LAYOUT.SVELTE: user =", user);
 </script>
-
-<svelte:head>
+<script lang="ts">
+  import Footer from "$lib/components/Footer.svelte";
+  // ...leave everything else as-is
+</script><svelte:head>
   <title>Outlandish Tours</title>
 </svelte:head>
 
@@ -96,19 +98,5 @@
   <main class="flex-1">
     <slot />
   </main>
-
-  <!-- Footer -->
-  <footer
-    class="mt-8 text-xs"
-    style="border-top: 1px solid var(--border-subtle); background-color: var(--bg-surface);"
-  >
-    <div
-      class="max-w-6xl mx-auto px-4 py-3 flex flex-col sm:flex-row gap-2 sm:gap-0 justify-between"
-    >
-      <span>© {new Date().getFullYear()} Outlandish Tours</span>
-      <span class="text-muted">
-        Crafted in Scotland · Powered by TicketPal Ltd
-      </span>
-    </div>
-  </footer>
-</div>
+<Footer />
+  </div>
